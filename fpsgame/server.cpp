@@ -1,3 +1,5 @@
+// the original Cube 2: Sauerbraten file was modified for piemod
+
 #include "game.h"
 
 namespace game
@@ -776,12 +778,6 @@ namespace server
         return false;
     }
 
-    void serverinit()
-    {
-        smapname[0] = '\0';
-        resetitems();
-    }
-
     int numclients(int exclude = -1, bool nospec = true, bool noai = true, bool priv = false)
     {
         int n = 0;
@@ -850,6 +846,14 @@ namespace server
     ctfservmode ctfmode;
     collectservmode collectmode;
     servmode *smode = NULL;
+
+    #include "piemod.cpp"
+    void serverinit()
+    {
+        smapname[0] = '\0';
+        resetitems();
+        piemod();
+    }
 
     bool canspawnitem(int type) { return !m_noitems && (type>=I_SHELLS && type<=I_QUAD && (!m_noammo || type<I_SHELLS || type>I_CARTRIDGES)); }
 
@@ -1923,6 +1927,7 @@ namespace server
         
     void changemap(const char *s, int mode)
     {
+        //conoutf("new mode: %d",mode);
         stopdemo();
         pausegame(false);
         changegamespeed(100);
@@ -1979,6 +1984,17 @@ namespace server
         }
 
         if(smode) smode->setup();
+
+
+        static bool firstchangemap=true;
+        static bool preventChangeRecursion=false;
+        if (firstchangemap){
+            firstchangemap=false;
+        } else if (!preventChangeRecursion) {
+            preventChangeRecursion=true;
+            event_gameover();
+            preventChangeRecursion=false;
+        }
     }
 
     void rotatemap(bool next)
@@ -2094,6 +2110,7 @@ namespace server
             sendf(-1, 1, "ri2", N_TIMEUP, 0);
             if(smode) smode->intermission();
             changegamespeed(100);
+            event_gameintermission();
             interm = gamemillis + 10000;
         }
     }
@@ -2492,6 +2509,7 @@ namespace server
             aiman::removeai(ci);
             if(!numclients(-1, false, true)) noclients(); // bans clear when server empties
             if(ci->local) checkpausegame();
+            event_playerdisconnect(ci->clientnum);
         }
         else connects.removeobj(ci);
     }
@@ -2781,6 +2799,7 @@ namespace server
                         ci->connectauth = disc;
                     }
                     else connected(ci);
+                    event_playerconnect(ci->clientnum);
                     break;
                 }
 
@@ -3067,7 +3086,10 @@ namespace server
                 QUEUE_MSG;
                 getstring(text, p);
                 filtertext(text, text);
-                QUEUE_STR(text);
+                if (event_playertext(ci->clientnum,text,false)){
+                    //conoutf("was sent");
+                    QUEUE_STR(text);
+                }
                 if(isdedicatedserver()) logoutf("%s: %s", colorname(cq), text);
                 break;
             }
@@ -3076,11 +3098,13 @@ namespace server
             {
                 getstring(text, p);
                 if(!ci || !cq || (ci->state.state==CS_SPECTATOR && !ci->local && !ci->privilege) || !m_teammode || !cq->team[0]) break;
-                loopv(clients)
-                {
-                    clientinfo *t = clients[i];
-                    if(t==cq || t->state.state==CS_SPECTATOR || t->state.aitype != AI_NONE || strcmp(cq->team, t->team)) continue;
-                    sendf(t->clientnum, 1, "riis", N_SAYTEAM, cq->clientnum, text);
+                if (event_playertext(ci->clientnum,text,true)){
+                    loopv(clients)
+                    {
+                        clientinfo *t = clients[i];
+                        if(t==cq || t->state.state==CS_SPECTATOR || t->state.aitype != AI_NONE || strcmp(cq->team, t->team)) continue;
+                        sendf(t->clientnum, 1, "riis", N_SAYTEAM, cq->clientnum, text);
+                    }
                 }
                 if(isdedicatedserver()) logoutf("%s <%s>: %s", colorname(cq), cq->team, text);
                 break;
@@ -3267,6 +3291,7 @@ namespace server
                 }
                 sendf(-1, 1, "ri3", N_SPECTATOR, spectator, val);
                 if(!val && !hasmap(spinfo)) rotatemap(true);
+                event_playerspectate(ci->clientnum,spinfo->state.state==CS_SPECTATOR);
                 break;
             }
 
@@ -3495,6 +3520,7 @@ namespace server
             } 
 
             case N_SERVCMD:
+                //conoutf("SERVCMD");
                 getstring(text, p);
                 break;
                      
@@ -3563,5 +3589,6 @@ namespace server
     }
 
     #include "aiman.h"
+    #include "piemodcs.cpp"
 }
 

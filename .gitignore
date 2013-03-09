@@ -1,0 +1,11 @@
+*~
+*.pyc
+.cproject
+.project
+Debug/
+clientserver.sh
+enet/
+*.o
+*.lo
+sauer_server
+modules/cuddle.py

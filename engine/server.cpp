@@ -1,3 +1,5 @@
+// the original Cube 2: Sauerbraten file was modified for piemod
+
 // server.cpp: little more than enhanced multicaster
 // runs dedicated or as client coroutine
 
@@ -588,6 +590,7 @@ void updatetime()
     }
 }
 
+#include <Python.h>
 void serverslice(bool dedicated, uint timeout)   // main server update, called from main loop in sp, or from below in dedicated server
 {
     if(!serverhost) 
@@ -598,7 +601,6 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
     }
        
     // below is network only
-
     if(dedicated) 
     {
         int millis = (int)enet_time_get(), elapsed = millis - totalmillis;
@@ -614,7 +616,9 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
     server::serverupdate();
 
     flushmasteroutput();
+    Py_BEGIN_ALLOW_THREADS
     checkserversockets();
+    Py_END_ALLOW_THREADS
 
     if(!lastupdatemaster || totalmillis-lastupdatemaster>60*60*1000)       // send alive signal to masterserver every hour of uptime
         updatemasterserver();

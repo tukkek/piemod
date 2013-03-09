@@ -1,0 +1,695 @@
+#This file offers a git diff of relevant changes from previous Cube 2: Sauerbraten release
+#Created using: git diff 78fcecfde1e9b31d258da10595b919db4dcef22c -- fpsgame/ engine/ Makefile
+diff --git a/Makefile b/Makefile
+index 0490e73..42c72fc 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,10 +1,12 @@
++#the original Cube 2: Sauerbraten file was modified for piemod
++SHELL = /bin/bash
+ CXXFLAGS= -O3 -fomit-frame-pointer
+-override CXXFLAGS+= -Wall -fsigned-char -fno-exceptions -fno-rtti
+-
++override CXXFLAGS+= -Wall -fsigned-char -fno-exceptions -fno-rtti -I/usr/local/include/python3.3m -I/usr/local/include/python3.3m -DNDEBUG -g -fwrapv -O3 -Wall -lpthread -ldl -lutil -lm -lpython3.3m -Xlinker -export-dynamic
++ 
+ PLATFORM= $(shell uname -s)
+ PLATFORM_PREFIX= native
+ 
+-INCLUDES= -Ishared -Iengine -Ifpsgame -Ienet/include
++INCLUDES= -Ishared -Iengine -Ifpsgame -Ienet/include 
+ 
+ STRIP=
+ ifeq (,$(findstring -g,$(CXXFLAGS)))
+@@ -161,7 +163,6 @@ $(filter fpsgame/%,$(CLIENT_OBJS)): $(filter fpsgame/%,$(CLIENT_PCH))
+ 
+ $(SERVER_OBJS): CXXFLAGS += $(SERVER_INCLUDES)
+ $(filter-out $(SERVER_OBJS),$(MASTER_OBJS)): CXXFLAGS += $(SERVER_INCLUDES)
+-
+ ifneq (,$(findstring MINGW,$(PLATFORM)))
+ client: $(CLIENT_OBJS)
+ 	$(WINDRES) -I vcpp -i vcpp/mingw.rc -J rc -o vcpp/mingw.res -O coff 
+@@ -180,6 +181,7 @@ client:	libenet $(CLIENT_OBJS)
+ 	$(CXX) $(CXXFLAGS) -o sauer_client $(CLIENT_OBJS) $(CLIENT_LIBS)
+ 
+ server:	libenet $(SERVER_OBJS)
++	$(shell doxygen DoxygenConfig 2>&1|grep warning)
+ 	$(CXX) $(CXXFLAGS) -o sauer_server $(SERVER_OBJS) $(SERVER_LIBS)  
+ 	
+ master: libenet $(MASTER_OBJS)
+@@ -479,6 +481,7 @@ fpsgame/server-standalone.o: shared/iengine.h shared/igame.h fpsgame/ai.h
+ fpsgame/server-standalone.o: fpsgame/capture.h fpsgame/ctf.h
+ fpsgame/server-standalone.o: fpsgame/collect.h fpsgame/extinfo.h
+ fpsgame/server-standalone.o: fpsgame/aiman.h
++fpsgame/server-standalone.o: fpsgame/piemod.cpp fpsgame/piemodcs.cpp
+ 
+ engine/master-standalone.o: shared/cube.h shared/tools.h shared/geom.h
+ engine/master-standalone.o: shared/ents.h shared/command.h shared/iengine.h
+diff --git a/engine/server.cpp b/engine/server.cpp
+index 5af9435..4acfc78 100644
+--- a/engine/server.cpp
++++ b/engine/server.cpp
+@@ -1,3 +1,5 @@
++// the original Cube 2: Sauerbraten file was modified for piemod
++
+ // server.cpp: little more than enhanced multicaster
+ // runs dedicated or as client coroutine
+ 
+@@ -588,6 +590,7 @@ void updatetime()
+     }
+ }
+ 
++#include <Python.h>
+ void serverslice(bool dedicated, uint timeout)   // main server update, called from main loop in sp, or from below in dedicated server
+ {
+     if(!serverhost) 
+@@ -598,7 +601,6 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
+     }
+        
+     // below is network only
+-
+     if(dedicated) 
+     {
+         int millis = (int)enet_time_get(), elapsed = millis - totalmillis;
+@@ -614,7 +616,9 @@ void serverslice(bool dedicated, uint timeout)   // main server update, called f
+     server::serverupdate();
+ 
+     flushmasteroutput();
++    Py_BEGIN_ALLOW_THREADS
+     checkserversockets();
++    Py_END_ALLOW_THREADS
+ 
+     if(!lastupdatemaster || totalmillis-lastupdatemaster>60*60*1000)       // send alive signal to masterserver every hour of uptime
+         updatemasterserver();
+diff --git a/fpsgame/piemod.cpp b/fpsgame/piemod.cpp
+new file mode 100644
+index 0000000..dd86569
+--- /dev/null
++++ b/fpsgame/piemod.cpp
+@@ -0,0 +1,417 @@
++/*!
++ * @file
++ * @author Kek <http://cuddle-clan.org>
++ *
++ * Piemod provides a Python engine to Cube 2: Sauerbraten servers.
++ *
++ * Certain module functions will be executed upon determined server events.
++ * Those events are listed in the "Function Documentation" section.
++ *
++ * @section Links
++ *
++ * Code repository, documentation and bug tracking system: https://github.com/tukkek/piemod
++ *
++ * Chat: #piemod at irc.gamesurge.net or https://gamesurge.net/chat/piemod
++ *
++ * @section handlers Python event handlers
++ *
++ * Functions that can be defined as entry-points to the modules are named here as "event_foo".
++ * In Python you should name them as "foo" only.
++ *
++ * Handlers take only one variable: a dictionary, whose keys are the parameter names in \a italic here.
++ *
++ * @section server Server module
++ *
++ * Importing the provided 'server' in a module enables you to communicate back with the server.
++ * The function listed here as 'server_bar' can then be found in Python as 'server.bar'.
++ *
++ * @section example Example (welcome.py)
++ *
++ * @code
++ * import server
++ *
++ * welcome = 'Hello world!'
++ *
++ * def connect(args):
++ *  server.msg(args['cn'],welcome)
++ *  server.cs('quit')
++ * @endcode
++ *
++ * @section Types
++ *
++ * This document shows C parameter types. It's easy to assume from those which Python types they will convert to:
++ *
++ * <table>
++ *  <tr><td><b>C</b></td><td><b>Python</b></td></tr>
++ *  <tr><td>bool</td><td>bool</td></tr>
++ *  <tr><td>int</td><td>int</td></tr>
++ *  <tr><td>char*</td><td>str</td></tr>
++ * </table>
++ *
++ * @section Configuration
++ *
++ * Add the line below to server-init.cfg, where [path] is the directory Python modules should be loaded from.
++ *
++ * @code
++ * alias piemodfolder [path]
++ * @endcode
++ *
++ * @section License
++ * ZLIB.
++ * It can be found in <a href="https://github.com/tukkek/piemod/blob/master/readme_source.txt#L45">src/readme_source.txt</a>.
++ *
++ * As required, all modified files should carry a header notice.
++ * Piemod covers only source files, no media is included.
++ *
++ * @section dp Development philosophy
++ *
++ * @subsection pc Python > C
++ * Always prefer Python modules to changing C.
++ * Python is easier and faster to write, debug and maintain.
++ *
++ * @subsection cp CubeScript > Piemod
++ * Always prefer adding CubeScript support to creating new Python<->C stuff.
++ *
++ * @subsection deo Doxygen > *
++ * Always update the documentation before the code and revise it after coding.
++ * Fail to do so and you might be liable to users requesting your sepukku.
++ *
++ * @section gf Generated files
++ *
++ * @subsection pd piemod.diff
++ * Git <a href='https://github.com/tukkek/piemod/blob/master/piemod.diff'>diff</a> from previous release.
++ *
++ * @subsection mrt modules/README.txt
++ * <a href='https://github.com/tukkek/piemod/blob/master/modules/README.txt'>Brief description</a> of the example Python modules.
++ *
++ * @section hw Help wanted!
++ * Piemod is looking for commit contributors who can extend the source code and respect the project's philosophy.
++ * New or modified Python modules are also welcome, as we aim to offer more features in the default package.
++ *
++ * You can also help by opening issues on the <a href='https://github.com/tukkek/piemod/issues'>bug tracking system</a> for feature requests or bug reports.
++ *
++ * @section Dependencies
++ *
++ * To run piemod you will need a <a href="http://www.python.org/download/releases/3.3.0/">Python 3 runtime</a> in your system.
++ *
++ * What you will need to compile:
++ * <ul>
++ * <li><a href="http://www.python.org/download/releases/3.3.0/">Python 3.3m development libraries</a></li>
++ * <li><a href="http://www.doxygen.org">Doxygen</a> (not needed if you remove the <a href="https://github.com/tukkek/piemod/blob/master/Makefile#L184">single Doxygen line</a> from the makefile)</li>
++ * <li>Cube 2: Sauerbraten <a href="https://github.com/tukkek/piemod/blob/master/readme_source.txt#L45">dependencies</a>.</li>
++ * </ul>
++ */
++#include <Python.h>
++#include <setjmp.h>
++#include <stdlib.h>
++#include <dirent.h>
++
++extern void suicide(clientinfo *ci);
++namespace aiman{
++    extern bool dorefresh;
++}
++
++//configuration
++//#define PIEMOD_DIR "/home/alex/bin/sauerbraten/collect/piemod/piemod/src/piemod/"
++#define EXIT_AFTER_INIT false
++
++//constants
++#define ABNORMAL_EXIT_STATUS 420
++
++vector<PyObject*> modules;
++
++void abort(){
++    exit(ABNORMAL_EXIT_STATUS);
++}
++
++void clean(PyObject* cleanme[]){
++    for (unsigned int i=0;i<sizeof cleanme/sizeof cleanme[0];i++){
++        Py_DECREF(cleanme[i]);
++    }
++}
++
++/*!
++ * Executes CubeScript.
++ * The avaiable functions are easy to read in <a href='https://github.com/tukkek/piemod/blob/master/fpsgame/piemodcs.cpp'>piemodcs.cpp</a>, all should work as expected in client-side cubescript.
++ * @param cubescript CubeScript to be executed.
++ * @return Result from the code execution.
++ */
++int server_cs(const char * cubescript) {
++    return execute(cubescript);
++}
++
++static PyObject* _server_cs(PyObject *self, PyObject *args) {
++    const char *command;
++    return PyArg_ParseTuple(args, "s", &command)?PyLong_FromLong(server_cs(command)):NULL;
++}
++
++/*!
++ * Get all players' information.
++ * @return Dictionary of all players by client number.
++ * Each player is a dictionary with the following keys:
++ * <table>
++ *  <tr><td><b>Key</b></td><td><b>Type</b></td><td><b>Description</b></td></tr>
++ *  <tr><td>name</td><td>str</td><td>Nickname</td></tr>
++ *  <tr><td>privilege</td><td>int</td><td>Privilege level (none=0, master=1, auth=2, admin=3)</td></tr>
++ *  <tr><td>status</td><td>int</td>
++ *      <td>Player status (alive=0, dead=1, spawning=2, lagged=3, editing=4, spectator=5)</td></tr>
++ *  <tr><td>team</td><td>str</td><td>Player's current team</td></tr>
++ * </table>
++ */
++PyObject* server_players() {
++    PyObject *dict=PyDict_New();
++    loopv(clients) {
++        clientinfo* c=clients[i];
++        if (c->state.aitype!=AI_NONE){
++            continue;
++        }
++        PyObject *p=PyDict_New(),
++                *cnK=PyUnicode_FromString("name"),
++                *cnP=PyUnicode_FromString(c->name),
++                *privK=PyUnicode_FromString("privilege"),
++                *privP=PyLong_FromLong(c->privilege),
++                *statusK=PyUnicode_FromString("status"),
++                *statusP=PyLong_FromLong(c->state.state),
++                *teamK=PyUnicode_FromString("team"),
++                *teamP=PyUnicode_FromString(c->team)
++                ;
++        PyDict_SetItem(p,cnK,cnP);
++        PyDict_SetItem(p,privK,privP);
++        PyDict_SetItem(p,statusK,statusP);
++        PyDict_SetItem(p,teamK,teamP);
++        PyDict_SetItem(dict,PyLong_FromLong(c->clientnum),p);
++    }
++    return dict;
++}
++
++static PyObject* _server_players(PyObject *self, PyObject *args) {
++    return PyArg_ParseTuple(args, "")?server_players():NULL;
++}
++
++/*!
++ * Send message to a player.
++ * @param cn Number of the destination client for the message.
++ * @param text Message to be sent.
++ */
++void server_msg(int cn,char* text) {
++    sendf(cn, 1, "ris", N_SERVMSG, text);
++}
++
++static PyObject* _server_msg(PyObject *self, PyObject *args) {
++    int cn;
++    char* text;
++    if (PyArg_ParseTuple(args, "is", &cn,&text)){
++        server_msg(cn,text);
++        Py_RETURN_NONE;
++    } else {
++        return NULL;
++    }
++}
++
++static PyMethodDef ServerMethods[] = {
++    {"cs",  _server_cs, METH_VARARGS,""},
++    {"players",  _server_players, METH_VARARGS,""},
++    {"msg",  _server_msg, METH_VARARGS,""},
++    {NULL, NULL, 0, NULL} // Sentinel
++};
++static struct PyModuleDef server = {PyModuleDef_HEAD_INIT,"server",NULL,-1,ServerMethods};
++
++PyMODINIT_FUNC
++PyInit_server(void) {
++    return PyModule_Create(&server);
++}
++
++void piemod(){
++    conoutf(CON_INIT,"init: piemod");
++
++    const char* folder=getalias("piemodfolder");
++    conoutf(CON_INIT,"module folder: %s",folder);
++    setenv("PYTHONPATH", folder, 0);
++    PyImport_AppendInittab("server", PyInit_server);
++    Py_Initialize();
++
++    DIR *dir= opendir(folder);
++    if (dir == NULL) {
++        conoutf(CON_INIT,"Can't open piemod modules dir!");
++        abort();
++    }
++
++    while (true) {
++        struct dirent *ent=readdir(dir);
++        if (ent==NULL){
++            break;
++        }
++
++        char* file=ent->d_name;
++        if (!strstr(file,".py")||strstr(file,".pyc")||strstr(file,".py~")) {
++            continue;
++        }
++        for (int i=1;;i++) {
++            if (file[i]=='.'){
++                char newfile[0];
++                copystring(newfile,file,i+1);
++                file=newfile;
++                break;
++            }
++        }
++
++        PyObject *pName=PyUnicode_FromString(file),*pModule=PyImport_Import(pName);
++        if (pModule == NULL) {
++            PyErr_Print();
++            conoutf(CON_INIT,"Failed to load: %s", file);
++            abort();
++        }
++        conoutf(CON_INIT,"Module: %s", file);
++        modules.put(pModule);
++
++        PyObject *cleanme[]={pName};
++        clean(cleanme);
++    };
++    closedir(dir);
++    if (EXIT_AFTER_INIT){
++        exit(0);
++    }
++}
++
++PyObject* piemod_event(const char* function,PyObject* dict){
++    PyObject *pArgs=PyTuple_New(1),*output=NULL;
++    PyTuple_SetItem(pArgs, 0, dict); //steals dict reference
++    for (int i=0;i<modules.length();i++){
++        PyObject *pReturn=NULL,*pFunc=PyObject_GetAttrString(modules[i], function);
++        if (pFunc && PyCallable_Check(pFunc)) {
++            pReturn = PyObject_CallObject(pFunc, pArgs);
++            if (pReturn == NULL) {
++                conoutf(CON_ERROR,"piemod: error");
++                PyErr_Print();
++            } else {
++                if (pReturn!=Py_None&&output==NULL) { //for now it only considers only the first non-None output
++                    Py_INCREF(pReturn);
++                    output=pReturn;
++                } else {
++                    //Py_DECREF(pReturn);
++                }
++            }
++        } else if (PyErr_Occurred()){
++            PyErr_Clear();
++        }
++
++        PyObject *cleanme[]={pFunc,pReturn};
++        for (unsigned int i=0;i<sizeof cleanme/sizeof cleanme[0];i++){
++            Py_XDECREF(cleanme[i]);
++        }
++    }
++
++    PyObject* cleanme[]={pArgs};
++    clean(cleanme);
++    return output; //passes reference
++}
++
++/*!
++ * New client connected. Adding bots will not raise an event.
++ * @param cn The client number of the connecting client.
++ */
++void event_playerconnect(int cn){
++    PyObject *dict=PyDict_New(),
++            *cnK=PyUnicode_FromString("cn"),
++            *cnP=PyLong_FromLong(cn)
++            ;
++    PyDict_SetItem(dict,cnK,cnP);
++    piemod_event("playerconnect",dict);
++
++    PyObject *cleanme[]={cnK,cnP};
++    clean(cleanme);
++}
++
++/*!
++ * Chat message was sent.
++ * @param cn Number of the client who sent the message.
++ * @param text Text sent.
++ * @param team False if the message was public, True if only for the author's team.
++ * @return If you return False the message will be blocked and not sent to other players.
++ */
++bool event_playertext(int cn,string text, bool team) {
++    PyObject *dict=PyDict_New(),
++            *cnK=PyUnicode_FromString("cn"),
++            *cnP=PyLong_FromLong(cn),
++            *textK=PyUnicode_FromString("text"),
++            *textP=PyUnicode_FromString(text),
++            *teamK=PyUnicode_FromString("team"),
++            *teamP=PyBool_FromLong(team)
++            ;
++    PyDict_SetItem(dict,cnK,cnP);
++    PyDict_SetItem(dict,teamK,teamP);
++    PyDict_SetItem(dict,textK,textP);
++    PyObject* output = piemod_event("playertext",dict);
++
++    PyObject* cleanme[]={cnK,cnP,teamK,teamP,textK,textP};
++    clean(cleanme);
++    if (output!=NULL){
++        Py_DECREF(output);
++        if (output==Py_False){
++            return false;
++        }
++    }
++    return true;
++}
++
++/*!
++ * Called a certain delay after event_gameintermission() .
++ */
++void event_gameover() {
++    PyObject *dict=PyDict_New()
++            ;
++    piemod_event("gameover",dict);
++
++    /*PyObject *cleanme[]={dict};
++    clean(cleanme);*/
++}
++
++/*!
++ * A player has moved from or to spectator.
++ * @param cn Client number of the player.
++ * @param spectator True if client is now spectating, False if he is no longer spectating.
++ */
++void event_playerspectate(int cn,bool spectator) {
++    PyObject *dict=PyDict_New(),
++            *cnK=PyUnicode_FromString("cn"),
++            *cnP=PyLong_FromLong(cn),
++            *specK=PyUnicode_FromString("spectator"),
++            *specP=PyBool_FromLong(spectator)
++            ;
++    PyDict_SetItem(dict,cnK,cnP);
++    PyDict_SetItem(dict,specK,specP);
++    piemod_event("playerspectate",dict);
++
++    PyObject *cleanme[]={cnK,cnP,specK,specP};
++    clean(cleanme);
++}
++
++
++/*!
++ * A player has left the game.
++ * @param cn Client number of the player.
++ */
++void event_playerdisconnect(int cn) {
++    PyObject *dict=PyDict_New(),
++            *cnK=PyUnicode_FromString("cn"),
++            *cnP=PyLong_FromLong(cn)
++            ;
++    PyDict_SetItem(dict,cnK,cnP);
++    piemod_event("playerdisconnect",dict);
++
++    PyObject *cleanme[]={cnK,cnP};
++    clean(cleanme);
++}
++
++/*!
++ * Called when a game ends and the scoreboard is shown.
++ */
++void event_gameintermission(){
++    PyObject *dict=PyDict_New()
++            ;
++    piemod_event("gameintermission",dict);
++
++    /*PyObject *cleanme[]={dict};
++    clean(cleanme);*/
++}
++
+diff --git a/fpsgame/piemodcs.cpp b/fpsgame/piemodcs.cpp
+new file mode 100644
+index 0000000..c8ead12
+--- /dev/null
++++ b/fpsgame/piemodcs.cpp
+@@ -0,0 +1,42 @@
++ICOMMAND(addbot, "i", (int* s),aiman::addai(clamp(*s, 1, 101), 4));
++ICOMMAND(delbot, "", (),aiman::deleteai());
++ICOMMAND(map, "s", (char* map),changemap(map,gamemode));
++ICOMMAND(mode, "i", (int* mode),gamemode=*mode);
++ICOMMAND(gamespeed, "i", (int* speed),changegamespeed(*speed));
++ICOMMAND(kick, "i", (int* victim),{addban(getclientip(*victim), 4*60*60000);disconnect_client(*victim, DISC_KICK);});
++ICOMMAND(quit, "i", (int* code),exit(*code));
++
++int parseplayer(const char *arg){
++    char *end;
++    int n = strtol(arg, &end, 10);
++    if(*arg && !*end){
++        if(!clients.inrange(n)) return -1;
++        return n;
++    }
++    // try case sensitive first
++    loopv(clients){
++        clientinfo *o = clients[i];
++        if(!strcmp(arg, o->name)) return o->clientnum;
++    }
++    // nothing found, try case insensitive
++    loopv(clients){
++        clientinfo *o = clients[i];
++        if(!strcasecmp(arg, o->name)) return o->clientnum;
++    }
++    return -1;
++}
++void togglespectator(int val, const char *who){
++    int spectator=parseplayer(who);
++    clientinfo *spinfo = (clientinfo *)getclientinfo(spectator); // no bots
++    if(!spinfo) return;
++    if(spinfo->state.state!=CS_SPECTATOR && val) {
++        if(spinfo->state.state==CS_ALIVE) suicide(spinfo);
++        if(smode) smode->leavegame(spinfo);
++        spinfo->state.state = CS_SPECTATOR;
++    } else if(spinfo->state.state==CS_SPECTATOR && !val) {
++        spinfo->state.state = CS_DEAD;
++        spinfo->state.respawn();
++    }
++    sendf(-1, 1, "ri3", N_SPECTATOR, spectator, val);
++}
++ICOMMAND(spectator, "is", (int *val, char *who), togglespectator(*val, who));
+diff --git a/fpsgame/server.cpp b/fpsgame/server.cpp
+index 2e472ad..4d546cf 100644
+--- a/fpsgame/server.cpp
++++ b/fpsgame/server.cpp
+@@ -1,3 +1,5 @@
++// the original Cube 2: Sauerbraten file was modified for piemod
++
+ #include "game.h"
+ 
+ namespace game
+@@ -776,12 +778,6 @@ namespace server
+         return false;
+     }
+ 
+-    void serverinit()
+-    {
+-        smapname[0] = '\0';
+-        resetitems();
+-    }
+-
+     int numclients(int exclude = -1, bool nospec = true, bool noai = true, bool priv = false)
+     {
+         int n = 0;
+@@ -851,6 +847,14 @@ namespace server
+     collectservmode collectmode;
+     servmode *smode = NULL;
+ 
++    #include "piemod.cpp"
++    void serverinit()
++    {
++        smapname[0] = '\0';
++        resetitems();
++        piemod();
++    }
++
+     bool canspawnitem(int type) { return !m_noitems && (type>=I_SHELLS && type<=I_QUAD && (!m_noammo || type<I_SHELLS || type>I_CARTRIDGES)); }
+ 
+     int spawntime(int type)
+@@ -1923,6 +1927,7 @@ namespace server
+         
+     void changemap(const char *s, int mode)
+     {
++        //conoutf("new mode: %d",mode);
+         stopdemo();
+         pausegame(false);
+         changegamespeed(100);
+@@ -1979,6 +1984,17 @@ namespace server
+         }
+ 
+         if(smode) smode->setup();
++
++
++        static bool firstchangemap=true;
++        static bool preventChangeRecursion=false;
++        if (firstchangemap){
++            firstchangemap=false;
++        } else if (!preventChangeRecursion) {
++            preventChangeRecursion=true;
++            event_gameover();
++            preventChangeRecursion=false;
++        }
+     }
+ 
+     void rotatemap(bool next)
+@@ -2094,6 +2110,7 @@ namespace server
+             sendf(-1, 1, "ri2", N_TIMEUP, 0);
+             if(smode) smode->intermission();
+             changegamespeed(100);
++            event_gameintermission();
+             interm = gamemillis + 10000;
+         }
+     }
+@@ -2492,6 +2509,7 @@ namespace server
+             aiman::removeai(ci);
+             if(!numclients(-1, false, true)) noclients(); // bans clear when server empties
+             if(ci->local) checkpausegame();
++            event_playerdisconnect(ci->clientnum);
+         }
+         else connects.removeobj(ci);
+     }
+@@ -2781,6 +2799,7 @@ namespace server
+                         ci->connectauth = disc;
+                     }
+                     else connected(ci);
++                    event_playerconnect(ci->clientnum);
+                     break;
+                 }
+ 
+@@ -3067,7 +3086,10 @@ namespace server
+                 QUEUE_MSG;
+                 getstring(text, p);
+                 filtertext(text, text);
+-                QUEUE_STR(text);
++                if (event_playertext(ci->clientnum,text,false)){
++                    //conoutf("was sent");
++                    QUEUE_STR(text);
++                }
+                 if(isdedicatedserver()) logoutf("%s: %s", colorname(cq), text);
+                 break;
+             }
+@@ -3076,11 +3098,13 @@ namespace server
+             {
+                 getstring(text, p);
+                 if(!ci || !cq || (ci->state.state==CS_SPECTATOR && !ci->local && !ci->privilege) || !m_teammode || !cq->team[0]) break;
+-                loopv(clients)
+-                {
+-                    clientinfo *t = clients[i];
+-                    if(t==cq || t->state.state==CS_SPECTATOR || t->state.aitype != AI_NONE || strcmp(cq->team, t->team)) continue;
+-                    sendf(t->clientnum, 1, "riis", N_SAYTEAM, cq->clientnum, text);
++                if (event_playertext(ci->clientnum,text,true)){
++                    loopv(clients)
++                    {
++                        clientinfo *t = clients[i];
++                        if(t==cq || t->state.state==CS_SPECTATOR || t->state.aitype != AI_NONE || strcmp(cq->team, t->team)) continue;
++                        sendf(t->clientnum, 1, "riis", N_SAYTEAM, cq->clientnum, text);
++                    }
+                 }
+                 if(isdedicatedserver()) logoutf("%s <%s>: %s", colorname(cq), cq->team, text);
+                 break;
+@@ -3267,6 +3291,7 @@ namespace server
+                 }
+                 sendf(-1, 1, "ri3", N_SPECTATOR, spectator, val);
+                 if(!val && !hasmap(spinfo)) rotatemap(true);
++                event_playerspectate(ci->clientnum,spinfo->state.state==CS_SPECTATOR);
+                 break;
+             }
+ 
+@@ -3495,6 +3520,7 @@ namespace server
+             } 
+ 
+             case N_SERVCMD:
++                //conoutf("SERVCMD");
+                 getstring(text, p);
+                 break;
+                      
+@@ -3563,5 +3589,6 @@ namespace server
+     }
+ 
+     #include "aiman.h"
++    #include "piemodcs.cpp"
+ }
+ 

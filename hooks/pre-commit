@@ -1,0 +1,10 @@
+#!/bin/bash
+if [ `git rev-parse --abbrev-ref HEAD` == "gh-pages" ] ; then exit ; fi
+echo "#This file offers a git diff of relevant changes from previous Cube 2: Sauerbraten release" > piemod.diff
+run="git diff 78fcecfde1e9b31d258da10595b919db4dcef22c -- fpsgame/ engine/ Makefile"
+echo "#Created using: $run" >> piemod.diff
+$run >> piemod.diff
+git add piemod.diff
+
+cat modules/*py|grep "#-">modules/README.txt
+git add modules/README.txt
