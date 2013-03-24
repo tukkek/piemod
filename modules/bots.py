@@ -27,9 +27,12 @@ def playerconnect(args):
   bots()
 def playerdisconnect(args):
   bots()
+def playerswitchteam(args):
+  bots()
+def gamestart(args):
+  bots()
 def gameover(args):
   nobots()
-  Timer(2,bots).start()
   
 def nobots():
   changebots(-DATA[CURRENT])

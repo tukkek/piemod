@@ -3,6 +3,7 @@
 import server, piemod, threading
 from server import msg
 from piemod import reply
+from bots import bots
 
 BAN_GRACE_TIME=30
 
@@ -46,6 +47,7 @@ def decide(cn,p):
   name=p['name']
   if p['privilege']!=3 and KICKS[name]>0:
     server.cs('kick '+str(cn))
+    bots()
   del KICKS[name], ANNOUNCE[ANNOUNCE.index(name)]
 
 def _kick_(args,parameters):
@@ -56,6 +58,7 @@ def _kick_(args,parameters):
   p=ps[cn]
   name=p['name']
   server.cs('spectator 1 '+name)
+  bots()
   if name in KICKS:
     KICKS[name]+=1
     if not name in ANNOUNCE:

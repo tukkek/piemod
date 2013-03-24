@@ -1934,6 +1934,20 @@ namespace server
         if(smode) smode->cleanup();
         aiman::clearai();
 
+        static bool first=true;
+        if (first){
+            first=false;
+        } else {
+            static bool recursion=false;
+            if (!recursion) {
+                recursion=true;
+                if (!event_gameover()){
+                    recursion=false;
+                    return;
+                }
+                recursion=false;
+            }
+        }
         gamemode = mode;
         gamemillis = 0;
         gamelimit = (m_overtime ? 15 : 10)*60000;
@@ -1985,16 +1999,7 @@ namespace server
 
         if(smode) smode->setup();
 
-
-        static bool firstchangemap=true;
-        static bool preventChangeRecursion=false;
-        if (firstchangemap){
-            firstchangemap=false;
-        } else if (!preventChangeRecursion) {
-            preventChangeRecursion=true;
-            event_gameover();
-            preventChangeRecursion=false;
-        }
+        event_gamestart();
     }
 
     void rotatemap(bool next)
@@ -3137,6 +3142,7 @@ namespace server
                     copystring(ci->team, text);
                     aiman::changeteam(ci);
                     sendf(-1, 1, "riisi", N_SETTEAM, sender, ci->team, ci->state.state==CS_SPECTATOR ? -1 : 0);
+                    event_playerswitchteam(ci->clientnum);
                 }
                 break;
             }

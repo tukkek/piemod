@@ -5,6 +5,7 @@ ICOMMAND(mode, "i", (int* mode),gamemode=*mode);
 ICOMMAND(gamespeed, "i", (int* speed),changegamespeed(*speed));
 ICOMMAND(kick, "i", (int* victim),{addban(getclientip(*victim), 4*60*60000);disconnect_client(*victim, DISC_KICK);});
 ICOMMAND(quit, "i", (int* code),exit(*code));
+ICOMMAND(intermission, "", (),startintermission());
 
 int parseplayer(const char *arg){
     char *end;
@@ -40,3 +41,13 @@ void togglespectator(int val, const char *who){
     sendf(-1, 1, "ri3", N_SPECTATOR, spectator, val);
 }
 ICOMMAND(spectator, "is", (int *val, char *who), togglespectator(*val, who));
+
+void setteam(int* who, const char *team)
+{
+    clientinfo *wi = clients[*who];
+    if(wi->state.state==CS_ALIVE) suicide(wi);
+    copystring(wi->team, team, MAXTEAMLEN+1);
+    aiman::changeteam(wi);
+    sendf(-1, 1, "riisi", N_SETTEAM, *who, wi->team, 1);
+}
+COMMAND(setteam, "is");

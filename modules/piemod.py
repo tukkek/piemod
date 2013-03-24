@@ -19,6 +19,7 @@ COLORS={
   'purple':5,
   'orange':6,
   'default':6,
+  'white':7,
 }
 def color(color,txt):
   return '\f'+str(color)+txt
@@ -33,7 +34,7 @@ def announce(txt):
 def playerconnect(args):
   print('Connected: '+players()[args['cn']]['name'])
   reply(args,'Welcome to a piemod server')
-  reply(args,'More info at github.com/tukkek/piemod')  
+  reply(args,'More info at GitHub or gamesurge.net/chat/piemod')
   
 def isadmin(player):
   return player['privilege']==3

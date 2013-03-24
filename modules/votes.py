@@ -3,7 +3,7 @@
 import piemod, shelve, server, contextlib, random
 from random import choice
 from server import cs, match
-from piemod import color, COLORS, debug #TODO debug
+from piemod import color, COLORS
 
 MAPS_CAPTURE=["abbey","akroseum","alithia","arabic","asgard","asteroids","c_egypt","c_valley","campo","capture_night","caribbean","collusion","core_refuge","core_transfer","corruption","cwcastle","damnation","dirtndust","donya","duomo","dust2","eternal_valley","evilness","face-capture","fb_capture","fc3","fc4","fc5","forge","frostbyte","hades","hallo","haste","hidden",","",""infamy","killcore3","kopenhagen","lostinspace","mbt12","mercury","monastery","nevil_c","nitro","nmp4","nmp8","nmp9","nucleus","ogrosupply","paradigm","ph-capture","reissen","relic","river_c","serenity","snapper_rocks","spcr","subterra","suburb","tempest","tortuga","turbulence","twinforts","urban_c","valhalla","venice","xenon",]
 MAPS_CTF=["abbey","akroseum","asgard","authentic","autumn","bad_moon","berlin_wall","bt_falls","campo","capture_night","catch22","core_refuge","core_transfer","damnation","desecration","dust2","eternal_valley","europium","evilness","face-capture","flagstone","forge","forgotten","garden","hallo","haste","hidden","infamy","kopenhagen","l_ctf","mach2","mbt1","mbt12","mbt4","mercury","mill","nitro","nucleus","recovery","redemption","reissen","sacrifice","shipwreck","siberia","snapper_rocks","spcr","subterra","suburb","tejen","tempest","tortuga","turbulence","twinforts","urban_c","valhalla","wdcd","xenon"] #arbana (bot issues)
@@ -98,8 +98,6 @@ def playertext(args):
   
 def gameintermission(args):
   cs('gamespeed 38')
-  with gamesshelve() as d:
-    debug(str(d[SHELVE_GAMES]))
   votees=[newvotee(MODE_ECTF),newvotee(MODE_ECOLLECT),]
   if playing()>=4:
     votees.append(newvotee(choice(MODES_MISC)))
@@ -128,6 +126,8 @@ def gameover(args):
   DATA[VOTING]=False
   del DATA[GAME_VOTERS][:]
   nplayers=playing()
+  if nplayers==0:
+    return
   if DATA[GAME]>=.5*nplayers:
     with gamesshelve() as d:
       thismatch=match()
@@ -141,8 +141,6 @@ def gameover(args):
         d[SHELVE_GAMES][mode][nplayers][m]+=1
       else:
         d[SHELVE_GAMES][mode][nplayers][m]=1
-  with gamesshelve() as d:
-    debug(str(d[SHELVE_GAMES]))
   DATA[GAME]=0
   
   count=[]

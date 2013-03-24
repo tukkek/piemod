@@ -189,6 +189,44 @@ static PyObject* _server_players(PyObject *self, PyObject *args) {
 }
 
 /*!
+ * Get match information.
+ * @return Dictionary with the following keys:
+ * <table>
+ *  <tr><td><b>Key</b></td><td><b>Type</b></td><td><b>Description</b></td></tr>
+ *  <tr><td>map</td><td>str</td><td>Name of the map currently being played</td></tr>
+ *  <tr><td>mode</td><td>int</td><td>
+ *      Current game mode (-1=demo playback, 0=ffa, 1=coop edit, 2=teamplay, 3=instagib, 4=instagib team,
+ *      5=efficiency, 6=efficiency team, 7=tactics mode, 8=tactics team mode, 9=capture mode, 10=regen capture,
+ *      11=ctf, 12=insta, 13=protect, 14=insta protect, 15=hold mode,16=insta hold, 17=efficiency ctf,
+ *      18=efficiency protect, 19=efficiency hold, 20=collect, 21=insta collect, 22=efficiency collect)
+ *  </td></tr>
+ * </table>
+ */
+PyObject* server_match() {
+    PyObject *p=PyDict_New(),
+            *mapK=PyUnicode_FromString("map"),
+            *mapP=PyUnicode_FromString(smapname),
+            *modeK=PyUnicode_FromString("mode"),
+            *modeP=PyLong_FromLong(gamemode),
+            *scoresK=PyUnicode_FromString("scores"),
+            *scoresP=PyDict_New()
+            ;
+    PyDict_SetItem(p,mapK,mapP);
+    PyDict_SetItem(p,modeK,modeP);
+    PyDict_SetItem(p,scoresK,scoresP);
+    loopv(clients)
+    {
+        clientinfo *o = clients[i];
+        PyDict_SetItem(scoresP,PyUnicode_FromString(o->team),PyLong_FromLong(smode->getteamscore(o->team)));
+    }
+    return p;
+}
+
+static PyObject* _server_match(PyObject *self, PyObject *args) {
+    return PyArg_ParseTuple(args, "")?server_match():NULL;
+}
+
+/*!
  * Send message to a player.
  * @param cn Number of the destination client for the message.
  * @param text Message to be sent.
@@ -212,6 +250,7 @@ static PyMethodDef ServerMethods[] = {
     {"cs",  _server_cs, METH_VARARGS,""},
     {"players",  _server_players, METH_VARARGS,""},
     {"msg",  _server_msg, METH_VARARGS,""},
+    {"match",  _server_match, METH_VARARGS,""},
     {NULL, NULL, 0, NULL} // Sentinel
 };
 static struct PyModuleDef server = {PyModuleDef_HEAD_INIT,"server",NULL,-1,ServerMethods};
@@ -356,14 +395,31 @@ bool event_playertext(int cn,string text, bool team) {
 
 /*!
  * Called a certain delay after event_gameintermission() .
+ * @return If you return False then a new map is not going to be automatically loaded.
+ * This can be done for manual control over map and mode rotation.
  */
-void event_gameover() {
+bool event_gameover() {
     PyObject *dict=PyDict_New()
             ;
-    piemod_event("gameover",dict);
+    PyObject* output = piemod_event("gameover",dict);
 
     /*PyObject *cleanme[]={dict};
     clean(cleanme);*/
+
+    if (output!=NULL){
+        Py_DECREF(output);
+        if (output==Py_False){
+            return false;
+        }
+    }
+    return true;
+}
+
+/*!
+ * Called at the beggining of a match.
+ */
+void event_gamestart() {
+    piemod_event("gamestart",PyDict_New());
 }
 
 /*!
@@ -386,7 +442,6 @@ void event_playerspectate(int cn,bool spectator) {
     clean(cleanme);
 }
 
-
 /*!
  * A player has left the game.
  * @param cn Client number of the player.
@@ -398,6 +453,22 @@ void event_playerdisconnect(int cn) {
             ;
     PyDict_SetItem(dict,cnK,cnP);
     piemod_event("playerdisconnect",dict);
+
+    PyObject *cleanme[]={cnK,cnP};
+    clean(cleanme);
+}
+
+/*!
+ * A player has switched team.
+ * @param cn Client number of the player.
+ */
+void event_playerswitchteam(int cn) {
+    PyObject *dict=PyDict_New(),
+            *cnK=PyUnicode_FromString("cn"),
+            *cnP=PyLong_FromLong(cn)
+            ;
+    PyDict_SetItem(dict,cnK,cnP);
+    piemod_event("playerswitchteam",dict);
 
     PyObject *cleanme[]={cnK,cnP};
     clean(cleanme);
