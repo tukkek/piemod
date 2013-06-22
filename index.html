@@ -34,13 +34,17 @@
 Functions</h2></td></tr>
 <tr><td class="memItemLeft" align="right" valign="top">int&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#a2fd58f82778c8d0caf55318a55c31fe6">server_cs</a> (const char *cubescript)</td></tr>
 <tr><td class="memItemLeft" align="right" valign="top">PyObject *&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#ac4c1233538d3113f12d00752e71dbb52">server_players</a> ()</td></tr>
+<tr><td class="memItemLeft" align="right" valign="top">PyObject *&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#aa47d635e5763a21f0a25cae32d80bc86">server_match</a> ()</td></tr>
 <tr><td class="memItemLeft" align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#a8318688f9b638f278b2f9dc7e958e65b">server_msg</a> (int cn, char *text)</td></tr>
 <tr><td class="memItemLeft" align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#ad702c99fd602fd284c7b615008ecb39b">event_playerconnect</a> (int cn)</td></tr>
 <tr><td class="memItemLeft" align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#ad0cea9726c418e372b16b02210dfe6db">event_playertext</a> (int cn, string text, bool team)</td></tr>
-<tr><td class="memItemLeft" align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#a6a1fa68b945683c28a6736287e68a461">event_gameover</a> ()</td></tr>
+<tr><td class="memItemLeft" align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#a287b6816977869c1b17d4d27b1ed224e">event_gameover</a> ()</td></tr>
+<tr><td class="memItemLeft" align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#afc3a4e4b6f272781845fe309fd378c79">event_gamestart</a> ()</td></tr>
 <tr><td class="memItemLeft" align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#a37399864ba2f2152b6e9cf447213298b">event_playerspectate</a> (int cn, bool spectator)</td></tr>
 <tr><td class="memItemLeft" align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#a11894a75dcaa860e738ff0ad40bf340a">event_playerdisconnect</a> (int cn)</td></tr>
+<tr><td class="memItemLeft" align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#af14b725ff4e0e2a0dd339d0245bcc76e">event_playerswitchteam</a> (int cn)</td></tr>
 <tr><td class="memItemLeft" align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#ab6cbd900eb6474a30e24b4db17b1f8a2">event_gameintermission</a> ()</td></tr>
+<tr><td class="memItemLeft" align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#af349cdece17a7de8c870e64f5114367a">event_playerdeath</a> (int fragger, int fragged)</td></tr>
 </table>
 <hr/><a name="_details"></a><h2>Detailed Description</h2>
 <dl class="author"><dt><b>Author:</b></dt><dd>Kek &lt;<a href="http://cuddle-clan.org">http://cuddle-clan.org</a>&gt;</dd></dl>
@@ -141,12 +145,12 @@ Cube 2: Sauerbraten <a href="https://github.com/tukkek/piemod/blob/master/readme
 
 </div>
 </div>
-<a class="anchor" id="a6a1fa68b945683c28a6736287e68a461"></a><!-- doxytag: member="piemod.cpp::event_gameover" ref="a6a1fa68b945683c28a6736287e68a461" args="()" -->
+<a class="anchor" id="a287b6816977869c1b17d4d27b1ed224e"></a><!-- doxytag: member="piemod.cpp::event_gameover" ref="a287b6816977869c1b17d4d27b1ed224e" args="()" -->
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void event_gameover </td>
+          <td class="memname">bool event_gameover </td>
           <td>(</td>
           <td class="paramname"></td>
           <td>&nbsp;)&nbsp;</td>
@@ -156,6 +160,25 @@ Cube 2: Sauerbraten <a href="https://github.com/tukkek/piemod/blob/master/readme
 </div>
 <div class="memdoc">
 <p>Called a certain delay after <a class="el" href="piemod_8cpp.html#ab6cbd900eb6474a30e24b4db17b1f8a2">event_gameintermission()</a> . </p>
+<dl class="return"><dt><b>Returns:</b></dt><dd>If you return False then a new map is not going to be automatically loaded. This can be done for manual control over map and mode rotation. </dd></dl>
+
+</div>
+</div>
+<a class="anchor" id="afc3a4e4b6f272781845fe309fd378c79"></a><!-- doxytag: member="piemod.cpp::event_gamestart" ref="afc3a4e4b6f272781845fe309fd378c79" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void event_gamestart </td>
+          <td>(</td>
+          <td class="paramname"></td>
+          <td>&nbsp;)&nbsp;</td>
+          <td></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+<p>Called at the beggining of a match. </p>
 
 </div>
 </div>
@@ -178,6 +201,41 @@ Cube 2: Sauerbraten <a href="https://github.com/tukkek/piemod/blob/master/readme
 <dl><dt><b>Parameters:</b></dt><dd>
   <table border="0" cellspacing="2" cellpadding="0">
     <tr><td valign="top"></td><td valign="top"><em>cn</em>&nbsp;</td><td>The client number of the connecting client. </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a class="anchor" id="af349cdece17a7de8c870e64f5114367a"></a><!-- doxytag: member="piemod.cpp::event_playerdeath" ref="af349cdece17a7de8c870e64f5114367a" args="(int fragger, int fragged)" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void event_playerdeath </td>
+          <td>(</td>
+          <td class="paramtype">int&nbsp;</td>
+          <td class="paramname"> <em>fragger</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&nbsp;</td>
+          <td class="paramname"> <em>fragged</em></td><td>&nbsp;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td><td></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+<p>Called when a player is killed.</p>
+<dl><dt><b>Parameters:</b></dt><dd>
+  <table border="0" cellspacing="2" cellpadding="0">
+    <tr><td valign="top"></td><td valign="top"><em>fragger</em>&nbsp;</td><td>Actor's client number. </td></tr>
+    <tr><td valign="top"></td><td valign="top"><em>fragged</em>&nbsp;</td><td>Target's client number. </td></tr>
   </table>
   </dd>
 </dl>
@@ -238,6 +296,31 @@ Cube 2: Sauerbraten <a href="https://github.com/tukkek/piemod/blob/master/readme
   <table border="0" cellspacing="2" cellpadding="0">
     <tr><td valign="top"></td><td valign="top"><em>cn</em>&nbsp;</td><td>Client number of the player. </td></tr>
     <tr><td valign="top"></td><td valign="top"><em>spectator</em>&nbsp;</td><td>True if client is now spectating, False if he is no longer spectating. </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a class="anchor" id="af14b725ff4e0e2a0dd339d0245bcc76e"></a><!-- doxytag: member="piemod.cpp::event_playerswitchteam" ref="af14b725ff4e0e2a0dd339d0245bcc76e" args="(int cn)" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void event_playerswitchteam </td>
+          <td>(</td>
+          <td class="paramtype">int&nbsp;</td>
+          <td class="paramname"> <em>cn</em></td>
+          <td>&nbsp;)&nbsp;</td>
+          <td></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+<p>A player has switched team. </p>
+<dl><dt><b>Parameters:</b></dt><dd>
+  <table border="0" cellspacing="2" cellpadding="0">
+    <tr><td valign="top"></td><td valign="top"><em>cn</em>&nbsp;</td><td>Client number of the player. </td></tr>
   </table>
   </dd>
 </dl>
@@ -313,6 +396,33 @@ Cube 2: Sauerbraten <a href="https://github.com/tukkek/piemod/blob/master/readme
 
 </div>
 </div>
+<a class="anchor" id="aa47d635e5763a21f0a25cae32d80bc86"></a><!-- doxytag: member="piemod.cpp::server_match" ref="aa47d635e5763a21f0a25cae32d80bc86" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">PyObject* server_match </td>
+          <td>(</td>
+          <td class="paramname"></td>
+          <td>&nbsp;)&nbsp;</td>
+          <td></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+<p>Get match information. </p>
+<dl class="return"><dt><b>Returns:</b></dt><dd>Dictionary with the following keys: <table class="doxtable">
+<tr>
+<td><b>Key</b></td><td><b>Type</b></td><td><b>Description</b> </td></tr>
+<tr>
+<td>map</td><td>str</td><td>Name of the map currently being played </td></tr>
+<tr>
+<td>mode</td><td>int</td><td>Current game mode (-1=demo playback, 0=ffa, 1=coop edit, 2=teamplay, 3=instagib, 4=instagib team, 5=efficiency, 6=efficiency team, 7=tactics mode, 8=tactics team mode, 9=capture mode, 10=regen capture, 11=ctf, 12=insta, 13=protect, 14=insta protect, 15=hold mode,16=insta hold, 17=efficiency ctf, 18=efficiency protect, 19=efficiency hold, 20=collect, 21=insta collect, 22=efficiency collect)  </td></tr>
+</table>
+</dd></dl>
+
+</div>
+</div>
 <a class="anchor" id="a8318688f9b638f278b2f9dc7e958e65b"></a><!-- doxytag: member="piemod.cpp::server_msg" ref="a8318688f9b638f278b2f9dc7e958e65b" args="(int cn, char *text)" -->
 <div class="memitem">
 <div class="memproto">
@@ -380,7 +490,7 @@ Cube 2: Sauerbraten <a href="https://github.com/tukkek/piemod/blob/master/readme
 </div>
 </div>
 </div>
-<hr class="footer"/><address class="footer"><small>Generated on Sun Mar 10 2013 09:36:21 for Piemod by&nbsp;
+<hr class="footer"/><address class="footer"><small>Generated on Sat Jun 22 2013 16:42:28 for Piemod by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.7.1 </small></address>
 </body>
