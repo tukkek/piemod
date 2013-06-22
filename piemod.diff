@@ -82,10 +82,10 @@ index 5af9435..4acfc78 100644
          updatemasterserver();
 diff --git a/fpsgame/piemod.cpp b/fpsgame/piemod.cpp
 new file mode 100644
-index 0000000..dd86569
+index 0000000..01687b5
 --- /dev/null
 +++ b/fpsgame/piemod.cpp
-@@ -0,0 +1,417 @@
+@@ -0,0 +1,508 @@
 +/*!
 + * @file
 + * @author Kek <http://cuddle-clan.org>
@@ -277,6 +277,44 @@ index 0000000..dd86569
 +}
 +
 +/*!
++ * Get match information.
++ * @return Dictionary with the following keys:
++ * <table>
++ *  <tr><td><b>Key</b></td><td><b>Type</b></td><td><b>Description</b></td></tr>
++ *  <tr><td>map</td><td>str</td><td>Name of the map currently being played</td></tr>
++ *  <tr><td>mode</td><td>int</td><td>
++ *      Current game mode (-1=demo playback, 0=ffa, 1=coop edit, 2=teamplay, 3=instagib, 4=instagib team,
++ *      5=efficiency, 6=efficiency team, 7=tactics mode, 8=tactics team mode, 9=capture mode, 10=regen capture,
++ *      11=ctf, 12=insta, 13=protect, 14=insta protect, 15=hold mode,16=insta hold, 17=efficiency ctf,
++ *      18=efficiency protect, 19=efficiency hold, 20=collect, 21=insta collect, 22=efficiency collect)
++ *  </td></tr>
++ * </table>
++ */
++PyObject* server_match() {
++    PyObject *p=PyDict_New(),
++            *mapK=PyUnicode_FromString("map"),
++            *mapP=PyUnicode_FromString(smapname),
++            *modeK=PyUnicode_FromString("mode"),
++            *modeP=PyLong_FromLong(gamemode),
++            *scoresK=PyUnicode_FromString("scores"),
++            *scoresP=PyDict_New()
++            ;
++    PyDict_SetItem(p,mapK,mapP);
++    PyDict_SetItem(p,modeK,modeP);
++    PyDict_SetItem(p,scoresK,scoresP);
++    loopv(clients)
++    {
++        clientinfo *o = clients[i];
++        PyDict_SetItem(scoresP,PyUnicode_FromString(o->team),PyLong_FromLong(smode->getteamscore(o->team)));
++    }
++    return p;
++}
++
++static PyObject* _server_match(PyObject *self, PyObject *args) {
++    return PyArg_ParseTuple(args, "")?server_match():NULL;
++}
++
++/*!
 + * Send message to a player.
 + * @param cn Number of the destination client for the message.
 + * @param text Message to be sent.
@@ -300,6 +338,7 @@ index 0000000..dd86569
 +    {"cs",  _server_cs, METH_VARARGS,""},
 +    {"players",  _server_players, METH_VARARGS,""},
 +    {"msg",  _server_msg, METH_VARARGS,""},
++    {"match",  _server_match, METH_VARARGS,""},
 +    {NULL, NULL, 0, NULL} // Sentinel
 +};
 +static struct PyModuleDef server = {PyModuleDef_HEAD_INIT,"server",NULL,-1,ServerMethods};
@@ -444,14 +483,31 @@ index 0000000..dd86569
 +
 +/*!
 + * Called a certain delay after event_gameintermission() .
++ * @return If you return False then a new map is not going to be automatically loaded.
++ * This can be done for manual control over map and mode rotation.
 + */
-+void event_gameover() {
++bool event_gameover() {
 +    PyObject *dict=PyDict_New()
 +            ;
-+    piemod_event("gameover",dict);
++    PyObject* output = piemod_event("gameover",dict);
 +
 +    /*PyObject *cleanme[]={dict};
 +    clean(cleanme);*/
++
++    if (output!=NULL){
++        Py_DECREF(output);
++        if (output==Py_False){
++            return false;
++        }
++    }
++    return true;
++}
++
++/*!
++ * Called at the beggining of a match.
++ */
++void event_gamestart() {
++    piemod_event("gamestart",PyDict_New());
 +}
 +
 +/*!
@@ -474,7 +530,6 @@ index 0000000..dd86569
 +    clean(cleanme);
 +}
 +
-+
 +/*!
 + * A player has left the game.
 + * @param cn Client number of the player.
@@ -492,6 +547,22 @@ index 0000000..dd86569
 +}
 +
 +/*!
++ * A player has switched team.
++ * @param cn Client number of the player.
++ */
++void event_playerswitchteam(int cn) {
++    PyObject *dict=PyDict_New(),
++            *cnK=PyUnicode_FromString("cn"),
++            *cnP=PyLong_FromLong(cn)
++            ;
++    PyDict_SetItem(dict,cnK,cnP);
++    piemod_event("playerswitchteam",dict);
++
++    PyObject *cleanme[]={cnK,cnP};
++    clean(cleanme);
++}
++
++/*!
 + * Called when a game ends and the scoreboard is shown.
 + */
 +void event_gameintermission(){
@@ -503,12 +574,32 @@ index 0000000..dd86569
 +    clean(cleanme);*/
 +}
 +
++/*!
++ * Called when a player is killed.
++ *
++ * @param fragger Actor's client number.
++ * @param fragged Target's client number.
++ */
++void event_playerdeath(int fragger,int fragged){
++    PyObject *dict=PyDict_New(),
++            *aK=PyUnicode_FromString("fragger"),
++            *aP=PyLong_FromLong(fragger),
++            *tK=PyUnicode_FromString("fragged"),
++            *tP=PyLong_FromLong(fragged)
++            ;
++    PyDict_SetItem(dict,aK,aP);
++    PyDict_SetItem(dict,tK,tP);
++    piemod_event("playerdeath",dict);
++
++    PyObject *cleanme[]={aK,aP,tK,tP};
++    clean(cleanme);
++}
 diff --git a/fpsgame/piemodcs.cpp b/fpsgame/piemodcs.cpp
 new file mode 100644
-index 0000000..c8ead12
+index 0000000..6accb8f
 --- /dev/null
 +++ b/fpsgame/piemodcs.cpp
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,53 @@
 +ICOMMAND(addbot, "i", (int* s),aiman::addai(clamp(*s, 1, 101), 4));
 +ICOMMAND(delbot, "", (),aiman::deleteai());
 +ICOMMAND(map, "s", (char* map),changemap(map,gamemode));
@@ -516,6 +607,7 @@ index 0000000..c8ead12
 +ICOMMAND(gamespeed, "i", (int* speed),changegamespeed(*speed));
 +ICOMMAND(kick, "i", (int* victim),{addban(getclientip(*victim), 4*60*60000);disconnect_client(*victim, DISC_KICK);});
 +ICOMMAND(quit, "i", (int* code),exit(*code));
++ICOMMAND(intermission, "", (),startintermission());
 +
 +int parseplayer(const char *arg){
 +    char *end;
@@ -551,8 +643,18 @@ index 0000000..c8ead12
 +    sendf(-1, 1, "ri3", N_SPECTATOR, spectator, val);
 +}
 +ICOMMAND(spectator, "is", (int *val, char *who), togglespectator(*val, who));
++
++void setteam(int* who, const char *team)
++{
++    clientinfo *wi = clients[*who];
++    if(wi->state.state==CS_ALIVE) suicide(wi);
++    copystring(wi->team, team, MAXTEAMLEN+1);
++    aiman::changeteam(wi);
++    sendf(-1, 1, "riisi", N_SETTEAM, *who, wi->team, 1);
++}
++COMMAND(setteam, "is");
 diff --git a/fpsgame/server.cpp b/fpsgame/server.cpp
-index 2e472ad..4d546cf 100644
+index 2e472ad..fc15a38 100644
 --- a/fpsgame/server.cpp
 +++ b/fpsgame/server.cpp
 @@ -1,3 +1,5 @@
@@ -589,7 +691,7 @@ index 2e472ad..4d546cf 100644
      bool canspawnitem(int type) { return !m_noitems && (type>=I_SHELLS && type<=I_QUAD && (!m_noammo || type<I_SHELLS || type>I_CARTRIDGES)); }
  
      int spawntime(int type)
-@@ -1923,6 +1927,7 @@ namespace server
+@@ -1923,12 +1927,27 @@ namespace server
          
      void changemap(const char *s, int mode)
      {
@@ -597,25 +699,36 @@ index 2e472ad..4d546cf 100644
          stopdemo();
          pausegame(false);
          changegamespeed(100);
-@@ -1979,6 +1984,17 @@ namespace server
+         if(smode) smode->cleanup();
+         aiman::clearai();
+ 
++        static bool first=true;
++        if (first){
++            first=false;
++        } else {
++            static bool recursion=false;
++            if (!recursion) {
++                recursion=true;
++                if (!event_gameover()){
++                    recursion=false;
++                    return;
++                }
++                recursion=false;
++            }
++        }
+         gamemode = mode;
+         gamemillis = 0;
+         gamelimit = (m_overtime ? 15 : 10)*60000;
+@@ -1979,6 +1998,8 @@ namespace server
          }
  
          if(smode) smode->setup();
 +
-+
-+        static bool firstchangemap=true;
-+        static bool preventChangeRecursion=false;
-+        if (firstchangemap){
-+            firstchangemap=false;
-+        } else if (!preventChangeRecursion) {
-+            preventChangeRecursion=true;
-+            event_gameover();
-+            preventChangeRecursion=false;
-+        }
++        event_gamestart();
      }
  
      void rotatemap(bool next)
-@@ -2094,6 +2110,7 @@ namespace server
+@@ -2094,6 +2115,7 @@ namespace server
              sendf(-1, 1, "ri2", N_TIMEUP, 0);
              if(smode) smode->intermission();
              changegamespeed(100);
@@ -623,7 +736,15 @@ index 2e472ad..4d546cf 100644
              interm = gamemillis + 10000;
          }
      }
-@@ -2492,6 +2509,7 @@ namespace server
+@@ -2138,6 +2160,7 @@ namespace server
+                 addteamkill(actor, target, 1);
+             }
+             ts.deadflush = ts.lastdeath + DEATHMILLIS;
++            event_playerdeath(actor->clientnum,target->clientnum);
+             // don't issue respawn yet until DEATHMILLIS has elapsed
+             // ts.respawn();
+         }
+@@ -2492,6 +2515,7 @@ namespace server
              aiman::removeai(ci);
              if(!numclients(-1, false, true)) noclients(); // bans clear when server empties
              if(ci->local) checkpausegame();
@@ -631,7 +752,7 @@ index 2e472ad..4d546cf 100644
          }
          else connects.removeobj(ci);
      }
-@@ -2781,6 +2799,7 @@ namespace server
+@@ -2781,6 +2805,7 @@ namespace server
                          ci->connectauth = disc;
                      }
                      else connected(ci);
@@ -639,7 +760,7 @@ index 2e472ad..4d546cf 100644
                      break;
                  }
  
-@@ -3067,7 +3086,10 @@ namespace server
+@@ -3067,7 +3092,10 @@ namespace server
                  QUEUE_MSG;
                  getstring(text, p);
                  filtertext(text, text);
@@ -651,7 +772,7 @@ index 2e472ad..4d546cf 100644
                  if(isdedicatedserver()) logoutf("%s: %s", colorname(cq), text);
                  break;
              }
-@@ -3076,11 +3098,13 @@ namespace server
+@@ -3076,11 +3104,13 @@ namespace server
              {
                  getstring(text, p);
                  if(!ci || !cq || (ci->state.state==CS_SPECTATOR && !ci->local && !ci->privilege) || !m_teammode || !cq->team[0]) break;
@@ -670,7 +791,15 @@ index 2e472ad..4d546cf 100644
                  }
                  if(isdedicatedserver()) logoutf("%s <%s>: %s", colorname(cq), cq->team, text);
                  break;
-@@ -3267,6 +3291,7 @@ namespace server
+@@ -3113,6 +3143,7 @@ namespace server
+                     copystring(ci->team, text);
+                     aiman::changeteam(ci);
+                     sendf(-1, 1, "riisi", N_SETTEAM, sender, ci->team, ci->state.state==CS_SPECTATOR ? -1 : 0);
++                    event_playerswitchteam(ci->clientnum);
+                 }
+                 break;
+             }
+@@ -3267,6 +3298,7 @@ namespace server
                  }
                  sendf(-1, 1, "ri3", N_SPECTATOR, spectator, val);
                  if(!val && !hasmap(spinfo)) rotatemap(true);
@@ -678,7 +807,7 @@ index 2e472ad..4d546cf 100644
                  break;
              }
  
-@@ -3495,6 +3520,7 @@ namespace server
+@@ -3495,6 +3527,7 @@ namespace server
              } 
  
              case N_SERVCMD:
@@ -686,7 +815,7 @@ index 2e472ad..4d546cf 100644
                  getstring(text, p);
                  break;
                       
-@@ -3563,5 +3589,6 @@ namespace server
+@@ -3563,5 +3596,6 @@ namespace server
      }
  
      #include "aiman.h"

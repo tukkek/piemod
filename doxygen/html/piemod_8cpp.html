@@ -44,6 +44,7 @@ Functions</h2></td></tr>
 <tr><td class="memItemLeft" align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#a11894a75dcaa860e738ff0ad40bf340a">event_playerdisconnect</a> (int cn)</td></tr>
 <tr><td class="memItemLeft" align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#af14b725ff4e0e2a0dd339d0245bcc76e">event_playerswitchteam</a> (int cn)</td></tr>
 <tr><td class="memItemLeft" align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#ab6cbd900eb6474a30e24b4db17b1f8a2">event_gameintermission</a> ()</td></tr>
+<tr><td class="memItemLeft" align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="piemod_8cpp.html#af349cdece17a7de8c870e64f5114367a">event_playerdeath</a> (int fragger, int fragged)</td></tr>
 </table>
 <hr/><a name="_details"></a><h2>Detailed Description</h2>
 <dl class="author"><dt><b>Author:</b></dt><dd>Kek &lt;<a href="http://cuddle-clan.org">http://cuddle-clan.org</a>&gt;</dd></dl>
@@ -200,6 +201,41 @@ Cube 2: Sauerbraten <a href="https://github.com/tukkek/piemod/blob/master/readme
 <dl><dt><b>Parameters:</b></dt><dd>
   <table border="0" cellspacing="2" cellpadding="0">
     <tr><td valign="top"></td><td valign="top"><em>cn</em>&nbsp;</td><td>The client number of the connecting client. </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a class="anchor" id="af349cdece17a7de8c870e64f5114367a"></a><!-- doxytag: member="piemod.cpp::event_playerdeath" ref="af349cdece17a7de8c870e64f5114367a" args="(int fragger, int fragged)" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void event_playerdeath </td>
+          <td>(</td>
+          <td class="paramtype">int&nbsp;</td>
+          <td class="paramname"> <em>fragger</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&nbsp;</td>
+          <td class="paramname"> <em>fragged</em></td><td>&nbsp;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td><td></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+<p>Called when a player is killed.</p>
+<dl><dt><b>Parameters:</b></dt><dd>
+  <table border="0" cellspacing="2" cellpadding="0">
+    <tr><td valign="top"></td><td valign="top"><em>fragger</em>&nbsp;</td><td>Actor's client number. </td></tr>
+    <tr><td valign="top"></td><td valign="top"><em>fragged</em>&nbsp;</td><td>Target's client number. </td></tr>
   </table>
   </dd>
 </dl>
@@ -454,7 +490,7 @@ Cube 2: Sauerbraten <a href="https://github.com/tukkek/piemod/blob/master/readme
 </div>
 </div>
 </div>
-<hr class="footer"/><address class="footer"><small>Generated on Sat Mar 23 2013 23:33:05 for Piemod by&nbsp;
+<hr class="footer"/><address class="footer"><small>Generated on Sat Jun 22 2013 16:42:28 for Piemod by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.7.1 </small></address>
 </body>
