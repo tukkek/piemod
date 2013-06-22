@@ -486,3 +486,23 @@ void event_gameintermission(){
     clean(cleanme);*/
 }
 
+/*!
+ * Called when a player is killed.
+ *
+ * @param fragger Actor's client number.
+ * @param fragged Target's client number.
+ */
+void event_playerdeath(int fragger,int fragged){
+    PyObject *dict=PyDict_New(),
+            *aK=PyUnicode_FromString("fragger"),
+            *aP=PyLong_FromLong(fragger),
+            *tK=PyUnicode_FromString("fragged"),
+            *tP=PyLong_FromLong(fragged)
+            ;
+    PyDict_SetItem(dict,aK,aP);
+    PyDict_SetItem(dict,tK,tP);
+    piemod_event("playerdeath",dict);
+
+    PyObject *cleanme[]={aK,aP,tK,tP};
+    clean(cleanme);
+}

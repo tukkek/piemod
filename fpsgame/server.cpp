@@ -2160,6 +2160,7 @@ namespace server
                 addteamkill(actor, target, 1);
             }
             ts.deadflush = ts.lastdeath + DEATHMILLIS;
+            event_playerdeath(actor->clientnum,target->clientnum);
             // don't issue respawn yet until DEATHMILLIS has elapsed
             // ts.respawn();
         }
