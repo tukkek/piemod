@@ -6,7 +6,7 @@ from server import cs, match
 from piemod import color, COLORS
 
 MAPS_CAPTURE=["abbey","akroseum","alithia","arabic","asgard","asteroids","c_egypt","c_valley","campo","capture_night","caribbean","collusion","core_refuge","core_transfer","corruption","cwcastle","damnation","dirtndust","donya","duomo","dust2","eternal_valley","evilness","face-capture","fb_capture","fc3","fc4","fc5","forge","frostbyte","hades","hallo","haste","hidden",","",""infamy","killcore3","kopenhagen","lostinspace","mbt12","mercury","monastery","nevil_c","nitro","nmp4","nmp8","nmp9","nucleus","ogrosupply","paradigm","ph-capture","reissen","relic","river_c","serenity","snapper_rocks","spcr","subterra","suburb","tempest","tortuga","turbulence","twinforts","urban_c","valhalla","venice","xenon",]
-MAPS_CTF=["abbey","akroseum","asgard","authentic","autumn","bad_moon","berlin_wall","bt_falls","campo","capture_night","catch22","core_refuge","core_transfer","damnation","desecration","dust2","eternal_valley","europium","evilness","face-capture","flagstone","forge","forgotten","garden","hallo","haste","hidden","infamy","kopenhagen","l_ctf","mach2","mbt1","mbt12","mbt4","mercury","mill","nitro","nucleus","recovery","redemption","reissen","sacrifice","shipwreck","siberia","snapper_rocks","spcr","subterra","suburb","tejen","tempest","tortuga","turbulence","twinforts","urban_c","valhalla","wdcd","xenon"] #arbana (bot issues)
+MAPS_CTF=["abbey","asgard","authentic","autumn","bad_moon","berlin_wall","bt_falls","campo","capture_night","catch22","core_refuge","core_transfer","damnation","desecration","dust2","eternal_valley","europium","evilness","face-capture","flagstone","forge","forgotten","garden","hallo","hidden","infamy","kopenhagen","l_ctf","mach2","mbt1","mbt12","mbt4","mercury","mill","nitro","nucleus","recovery","redemption","reissen","sacrifice","shipwreck","siberia","snapper_rocks","spcr","subterra","suburb","tejen","tempest","tortuga","turbulence","twinforts","urban_c","valhalla","wdcd","xenon"] #bot issues: arbana, haste, akroseum
 
 MODE_REGEN=10
 MODE_ECTF=17
@@ -47,8 +47,11 @@ def mapmode(m,mode):
   cs('mode '+str(mode))
   cs('map '+m)
   
+def mapsbymode(mode):
+  return MAPS_CAPTURE if mode==MODE_EHOLD or mode==MODE_REGEN else MAPS_CTF
+  
 def randommap(mode):
-  return choice(MAPS_CAPTURE if mode==MODE_EHOLD or mode==MODE_REGEN else MAPS_CTF)
+  return choice(mapsbymode(mode))
 
 def playing():
   return len(piemod.playing())
@@ -69,7 +72,10 @@ def newvotee(mode):
     pass
   if votee==None:
     votee=[mode,randommap(mode),False]
-  return newvotee(mode) if votee[1]==match()['map'] else votee
+  m=votee[1]
+  if m==match()['map'] or not m in mapsbymode(mode): #deals with maps removed from rotation
+    return newvotee(mode)
+  return votee
 
 first=newvotee(choice(MODES_INITIAL))
 mapmode(first[1],first[0])
@@ -126,9 +132,7 @@ def gameover(args):
   DATA[VOTING]=False
   del DATA[GAME_VOTERS][:]
   nplayers=playing()
-  if nplayers==0:
-    return
-  if DATA[GAME]>=.5*nplayers:
+  if not nplayers==0 and DATA[GAME]>=.5*nplayers:
     with gamesshelve() as d:
       thismatch=match()
       mode=thismatch['mode']
