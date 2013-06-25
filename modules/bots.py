@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 #- bots: ensure at least 2 players per team, autobalance with bots, public changing of bot skill level
-import piemod
-from threading import Timer
+import piemod, time, threading
 from server import cs
 
 DEFAULT_SKILL=95
@@ -30,9 +29,13 @@ def playerdisconnect(args):
 def playerswitchteam(args):
   bots()
 def gamestart(args):
-  bots()
+  threading.Thread(target=delaybots).start()
 def gameover(args):
   nobots()
+  
+def delaybots():
+  time.sleep(2)
+  bots()
   
 def nobots():
   changebots(-DATA[CURRENT])
