@@ -6,6 +6,7 @@ ICOMMAND(gamespeed, "i", (int* speed),changegamespeed(*speed));
 ICOMMAND(kick, "i", (int* victim),{addban(getclientip(*victim), 4*60*60000);disconnect_client(*victim, DISC_KICK);});
 ICOMMAND(quit, "i", (int* code),exit(*code));
 ICOMMAND(intermission, "", (),startintermission());
+ICOMMAND(recorddemo, "i", (int *val), demonextmatch = *val!=0);
 
 int parseplayer(const char *arg){
     char *end;
